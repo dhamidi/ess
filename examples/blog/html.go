@@ -27,7 +27,12 @@ func (self *HTML) String() string {
 
 func (self *HTML) WriteHTML(w io.Writer, prefix, indent string) {
 	if self.Name == "TEXT" {
-		fmt.Fprintf(w, "%s%s", prefix, escape(self.Content))
+		fmt.Fprintf(w, "%s", escape(self.Content))
+		return
+	}
+
+	if self.Name == "CDATA" {
+		fmt.Fprintf(w, "%s%s", prefix, self.Content)
 		return
 	}
 
@@ -64,8 +69,17 @@ func (self *HTML) T(name string, attributes HTMLAttributes, children ...*HTML) *
 	}
 }
 
+func (self *HTML) C(children ...*HTML) *HTML {
+	self.Children = append(self.Children, children...)
+	return self
+}
+
 func (self *HTML) Text(text string) *HTML {
 	return &HTML{Content: text, Name: "TEXT"}
+}
+
+func (self *HTML) Lit(text string) *HTML {
+	return &HTML{Content: text, Name: "CDATA"}
 }
 
 func (self *HTML) A(name, value string) HTMLAttributes {
@@ -85,6 +99,7 @@ func NewHTMLDocument(title string, body ...*HTML) *HTML {
 		h.T("head", nil,
 			h.T("meta", h.A("charset", "utf")),
 			h.T("title", nil, h.Text(title)),
+			h.T("style", nil, h.Lit(stylesheet)),
 		),
 		h.T("body", nil, body...),
 	)

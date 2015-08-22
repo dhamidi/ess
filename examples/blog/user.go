@@ -6,12 +6,16 @@ type User struct {
 	id     string
 	events ess.EventPublisher
 
-	signedUp bool
-	password string
+	signedUp       bool
+	password       string
+	activeSessions map[string]bool
 }
 
 func NewUser(id string) *User {
-	return &User{id: id}
+	return &User{
+		id:             id,
+		activeSessions: map[string]bool{},
+	}
 }
 
 func (self *User) HandleCommand(command *ess.Command) error {
@@ -19,7 +23,9 @@ func (self *User) HandleCommand(command *ess.Command) error {
 	case "sign-up":
 		return self.SignUp(command)
 	case "login":
-		return self.Login(command.Get("password").(*ess.BcryptedPassword))
+		return self.Login(command.Get("session").String(), command.Get("password").(*ess.BcryptedPassword))
+	case "logout":
+		return self.Logout(command.Get("session").String())
 	}
 	return nil
 }
@@ -44,7 +50,7 @@ func (self *User) SignUp(params *ess.Command) error {
 	return err.Return()
 }
 
-func (self *User) Login(password *ess.BcryptedPassword) error {
+func (self *User) Login(session string, password *ess.BcryptedPassword) error {
 	err := ess.NewValidationError()
 
 	if !self.signedUp {
@@ -58,11 +64,43 @@ func (self *User) Login(password *ess.BcryptedPassword) error {
 	if err.Ok() {
 		self.events.PublishEvent(
 			ess.NewEvent("user.logged-in").
-				For(self),
+				For(self).
+				Add("session", session),
 		)
 	}
 
 	return err.Return()
+}
+
+func (self *User) Logout(session string) error {
+	err := ess.NewValidationError()
+
+	if !self.signedUp {
+		err.Add("user", "not_found")
+	}
+
+	if session == "" {
+		err.Add("session", "empty")
+	}
+
+	if !self.HasActiveSession(session) {
+		err.Add("session", "expired")
+	}
+
+	if err.Ok() {
+		self.events.PublishEvent(
+			ess.NewEvent("user.logged-out").
+				For(self).
+				Add("session", session),
+		)
+	}
+
+	return err.Return()
+}
+
+func (self *User) HasActiveSession(session string) bool {
+	_, found := self.activeSessions[session]
+	return found
 }
 
 func (self *User) HandleEvent(event *ess.Event) {
@@ -70,6 +108,10 @@ func (self *User) HandleEvent(event *ess.Event) {
 	case "user.signed-up":
 		self.signedUp = true
 		self.password = event.Payload["password"].(string)
+	case "user.logged-in":
+		if session := event.Payload["session"]; session != nil {
+			self.activeSessions[session.(string)] = true
+		}
 	}
 }
 

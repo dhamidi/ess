@@ -118,6 +118,18 @@ func (self *Command) Receiver() Aggregate {
 	return self.receiver
 }
 
+func (self *Command) Set(name string, value string) *Command {
+	target, found := self.Fields[name]
+	if found {
+		err := target.UnmarshalText([]byte(value))
+		if err != nil {
+			self.err(name, err)
+		}
+	}
+
+	return self
+}
+
 func (self *Command) FromForm(form Form) *Command {
 	for field, value := range self.Fields {
 		text := form.FormValue(field)

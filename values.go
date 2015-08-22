@@ -106,7 +106,11 @@ func (self *Email) UnmarshalText(data []byte) error {
 }
 
 func (self *Email) String() string {
-	return self.address.Address
+	if self.address != nil {
+		return self.address.Address
+	}
+
+	return ""
 }
 
 func (self *Email) Copy() Value {
@@ -121,6 +125,9 @@ type BcryptedPassword struct {
 }
 
 func (self *BcryptedPassword) UnmarshalText(data []byte) error {
+	if len(data) == 0 {
+		return errors.New("empty")
+	}
 	bytes, err := bcrypt.GenerateFromPassword(data, bcrypt.DefaultCost)
 	if err != nil {
 		return err

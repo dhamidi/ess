@@ -6,6 +6,7 @@ type Post struct {
 	events  ess.EventPublisher
 	id      string
 	written bool
+	author  string
 }
 
 func NewPost(id string) *Post {
@@ -22,25 +23,33 @@ func (self *Post) HandleEvent(event *ess.Event) {
 	switch event.Name {
 	case "post.written":
 		self.written = true
+		if author := event.Payload["author"]; author != nil {
+			self.author = author.(string)
+		}
 	}
 }
 
 func (self *Post) HandleCommand(command *ess.Command) error {
 	switch command.Name {
 	case "write-post":
-		return self.Write(command.Get("title").String(), command.Get("body").String())
+		return self.Write(
+			command.Get("title").String(),
+			command.Get("body").String(),
+			command.Get("username").String(),
+		)
 	case "edit-post":
 		return self.Edit(
 			command.Get("title").String(),
 			command.Get("body").String(),
 			command.Get("reason").String(),
+			command.Get("username").String(),
 		)
 	}
 
 	return nil
 }
 
-func (self *Post) Edit(title, body, reason string) error {
+func (self *Post) Edit(title, body, reason, username string) error {
 	err := ess.NewValidationError()
 
 	if !self.written {
@@ -55,6 +64,10 @@ func (self *Post) Edit(title, body, reason string) error {
 		err.Add("body", "empty")
 	}
 
+	if username != self.author {
+		err.Add("username", "mismatch")
+	}
+
 	if reason == "" {
 		err.Add("reason", "empty")
 	}
@@ -65,6 +78,7 @@ func (self *Post) Edit(title, body, reason string) error {
 				For(self).
 				Add("title", title).
 				Add("body", body).
+				Add("author", username).
 				Add("reason", reason),
 		)
 	}
@@ -72,7 +86,7 @@ func (self *Post) Edit(title, body, reason string) error {
 	return err.Return()
 }
 
-func (self *Post) Write(title, body string) error {
+func (self *Post) Write(title, body, author string) error {
 	err := ess.NewValidationError()
 
 	if self.written {
@@ -87,11 +101,16 @@ func (self *Post) Write(title, body string) error {
 		err.Add("body", "empty")
 	}
 
+	if author == "" {
+		err.Add("username", "empty")
+	}
+
 	if err.Ok() {
 		self.events.PublishEvent(
 			ess.NewEvent("post.written").
 				For(self).
 				Add("title", title).
+				Add("author", author).
 				Add("body", body),
 		)
 	}
