@@ -134,10 +134,11 @@ func (self *PostResource) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	switch action {
 	case "":
 		post, err := self.allPosts.ById(postId)
+
 		if err != nil {
 			result = ess.NewErrorResult(err)
 		} else {
-			Show(w, post)
+			ShowPost(w, post)
 			return
 		}
 	case "edit":

@@ -39,7 +39,8 @@ func (self *Application) WithProjection(name string, projection EventHandler) *A
 }
 
 func (self *Application) project(event *Event) {
-	for _, handler := range self.projections {
+	for name, handler := range self.projections {
+		self.logger.Printf("PROJECT %s TO %s", event.Name, name)
 		handler.HandleEvent(event)
 	}
 }
@@ -73,6 +74,10 @@ func (self *Application) Send(command *Command) *CommandResult {
 	}
 	if err := self.store.Store(events); err != nil {
 		return NewErrorResult(err)
+	}
+
+	for _, event := range events {
+		self.project(event)
 	}
 
 	return NewSuccessResult(receiver)
