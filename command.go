@@ -34,13 +34,20 @@ type CommandDefinition struct {
 	Name       string
 	Fields     map[string]Value
 	TargetFunc func(*Command) Aggregate
+	IdField    string
 }
 
 func NewCommandDefinition(name string) *CommandDefinition {
 	return &CommandDefinition{
-		Name:   name,
-		Fields: map[string]Value{},
+		Name:    name,
+		Fields:  map[string]Value{},
+		IdField: "id",
 	}
+}
+
+func (self *CommandDefinition) Id(name string, value Value) *CommandDefinition {
+	self.IdField = name
+	return self.Field(name, value)
 }
 
 func (self *CommandDefinition) Field(name string, value Value) *CommandDefinition {
@@ -57,8 +64,9 @@ func (self *CommandDefinition) NewCommand() *Command {
 	cmd := &Command{
 		Name: self.Name,
 		Fields: map[string]Value{
-			"id": Id(),
+			self.IdField: Id(),
 		},
+		IdField:      self.IdField,
 		errors:       NewValidationError(),
 		receiverFunc: self.TargetFunc,
 	}
@@ -76,8 +84,9 @@ func (self *CommandDefinition) FromForm(form Form) *Command {
 }
 
 type Command struct {
-	Name   string
-	Fields map[string]Value
+	Name    string
+	Fields  map[string]Value
+	IdField string
 
 	errors       *ValidationError
 	receiver     Aggregate
@@ -85,7 +94,7 @@ type Command struct {
 }
 
 func (self *Command) AggregateId() string {
-	val := self.Get("id")
+	val := self.Get(self.IdField)
 	if val != nil {
 		return val.String()
 	} else {
@@ -124,7 +133,7 @@ func (self *Command) Acknowledge(clock Clock) {
 	now := clock.Now()
 	self.Fields["now"] = &Time{now}
 	if self.AggregateId() == "" {
-		self.Fields["id"] = StringValue(fmt.Sprintf("%d", now.UnixNano()))
+		self.Fields[self.IdField] = StringValue(fmt.Sprintf("%d", now.UnixNano()))
 	}
 }
 

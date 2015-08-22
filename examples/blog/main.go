@@ -24,109 +24,59 @@ var (
 			Field("body", ess.TrimmedString()).
 			Field("reason", ess.TrimmedString()).
 			Target(PostFromCommand)
+
+	SignUp = ess.NewCommandDefinition("sign-up").
+		Id("username", ess.Id()).
+		Field("email", ess.EmailAddress()).
+		Field("password", ess.Password()).
+		Target(UserFromCommand)
+
+	LogIn = ess.NewCommandDefinition("login").
+		Id("username", ess.Id()).
+		Field("password", ess.Password()).
+		Target(UserFromCommand)
 )
 
 func PostFromCommand(params *ess.Command) ess.Aggregate {
 	return NewPost(params.AggregateId())
 }
 
-type Post struct {
-	events  ess.EventPublisher
-	id      string
-	written bool
-
-	previousChecksum, checksum []byte
+func UserFromCommand(params *ess.Command) ess.Aggregate {
+	return NewUser(params.Get("username").String())
 }
 
-func NewPost(id string) *Post {
-	return &Post{id: id}
+type SignupsResource struct {
+	app *ess.Application
 }
 
-func (self *Post) Id() string { return self.id }
-func (self *Post) PublishWith(publisher ess.EventPublisher) ess.Aggregate {
-	self.events = publisher
-	return self
+func (self *SignupsResource) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	result := (*ess.CommandResult)(nil)
+	switch req.Method {
+	case "POST":
+		result = self.app.Send(SignUp.FromForm(req))
+	default:
+		MethodNotSupported(w)
+		return
+	}
+
+	ShowResult(w, result)
 }
 
-func (self *Post) HandleEvent(event *ess.Event) {
-	switch event.Name {
-	case "post.written":
-		self.written = true
-	}
+type SessionsResource struct {
+	app *ess.Application
 }
 
-func (self *Post) HandleCommand(command *ess.Command) error {
-	switch command.Name {
-	case "write-post":
-		return self.Write(command.Get("title").String(), command.Get("body").String())
-	case "edit-post":
-		return self.Edit(
-			command.Get("title").String(),
-			command.Get("body").String(),
-			command.Get("reason").String(),
-		)
+func (self *SessionsResource) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	result := (*ess.CommandResult)(nil)
+	switch req.Method {
+	case "POST":
+		result = self.app.Send(LogIn.FromForm(req))
+	default:
+		MethodNotSupported(w)
+		return
 	}
 
-	return nil
-}
-
-func (self *Post) Edit(title, body, reason string) error {
-	err := ess.NewValidationError()
-
-	if !self.written {
-		err.Add("post", "not_found")
-	}
-
-	if title == "" {
-		err.Add("title", "empty")
-	}
-
-	if body == "" {
-		err.Add("body", "empty")
-	}
-
-	if reason == "" {
-		err.Add("reason", "empty")
-	}
-
-	if err.Ok() {
-		self.events.PublishEvent(
-			ess.NewEvent("post.edited").
-				For(self).
-				Add("title", title).
-				Add("body", body).
-				Add("reason", reason),
-		)
-	}
-
-	return err.Return()
-}
-
-func (self *Post) Write(title, body string) error {
-	err := ess.NewValidationError()
-
-	if self.written {
-		err.Add("post", "not_unique")
-	}
-
-	if title == "" {
-		err.Add("title", "empty")
-	}
-
-	if body == "" {
-		err.Add("body", "empty")
-	}
-
-	if err.Ok() {
-		self.events.PublishEvent(
-			ess.NewEvent("post.written").
-				For(self).
-				Add("title", title).
-				Add("body", body),
-		)
-	}
-
-	return err.Return()
+	ShowResult(w, result)
 }
 
 type PostsResource struct {
@@ -141,6 +91,10 @@ func (self *PostsResource) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	}
 
 	ShowResult(w, result)
+}
+
+func MethodNotSupported(w http.ResponseWriter) {
+	http.Error(w, "Method Not Supported", http.StatusMethodNotAllowed)
 }
 
 func ShowResult(w http.ResponseWriter, result *ess.CommandResult) {
@@ -212,6 +166,8 @@ func main() {
 		logger.Fatal(err)
 	}
 
+	http.Handle("/sessions", &SessionsResource{app: application})
+	http.Handle("/signups", &SignupsResource{app: application})
 	http.Handle("/posts/", &PostResource{app: application, allPosts: allPostsInMemory})
 	http.Handle("/posts", &PostsResource{app: application})
 

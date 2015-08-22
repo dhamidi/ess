@@ -2,9 +2,12 @@ package ess
 
 import (
 	"errors"
+	"net/mail"
 	"regexp"
 	"strings"
 	"time"
+
+	"golang.org/x/crypto/bcrypt"
 )
 
 type String struct {
@@ -87,3 +90,52 @@ func (self *Identifier) String() string {
 func (self *Identifier) Copy() Value {
 	return &Identifier{id: self.id}
 }
+
+type Email struct {
+	address *mail.Address
+}
+
+func (self *Email) UnmarshalText(data []byte) error {
+	address, err := mail.ParseAddress(string(data))
+	if err != nil {
+		return err
+	}
+
+	self.address = address
+	return nil
+}
+
+func (self *Email) String() string {
+	return self.address.Address
+}
+
+func (self *Email) Copy() Value {
+	return &Email{address: self.address}
+}
+
+func EmailAddress() *Email { return &Email{} }
+
+type BcryptedPassword struct {
+	plain []byte
+	bytes []byte
+}
+
+func (self *BcryptedPassword) UnmarshalText(data []byte) error {
+	bytes, err := bcrypt.GenerateFromPassword(data, bcrypt.DefaultCost)
+	if err != nil {
+		return err
+	}
+
+	self.plain = append(self.plain, data...)
+	self.bytes = bytes
+	return nil
+}
+
+func (self *BcryptedPassword) Copy() Value    { return &BcryptedPassword{bytes: self.bytes} }
+func (self *BcryptedPassword) String() string { return string(self.bytes) }
+
+func (self *BcryptedPassword) Matches(hashedPassword string) bool {
+	return bcrypt.CompareHashAndPassword([]byte(hashedPassword), self.plain) == nil
+}
+
+func Password() *BcryptedPassword { return &BcryptedPassword{} }
