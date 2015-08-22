@@ -47,8 +47,9 @@ func (self *Application) Send(command *Command) *CommandResult {
 	transaction := NewEventsInMemory()
 	receiver.PublishWith(transaction)
 
-	self.logger.Printf("EXECUTE %s", command.Name)
+	self.logger.Printf("EXECUTE %s", command)
 	if err := command.Execute(); err != nil {
+		self.logger.Printf("DENY %s", err)
 		return NewErrorResult(err)
 	}
 

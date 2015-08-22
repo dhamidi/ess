@@ -1,6 +1,9 @@
 package ess
 
-import "fmt"
+import (
+	"bytes"
+	"fmt"
+)
 
 type CommandResult struct {
 	aggregateId string
@@ -130,4 +133,16 @@ func (self *Command) Execute() error {
 		return self.errors.Return()
 	}
 	return self.receiver.HandleCommand(self)
+}
+
+func (self *Command) String() string {
+	out := bytes.NewBufferString(self.Name + "\n")
+
+	for field, value := range self.Fields {
+		fmt.Fprintf(out, "param %s: ", field)
+		fmt.Fprintf(out, "%q", value)
+		fmt.Fprintf(out, "\n")
+	}
+
+	return out.String()
 }
