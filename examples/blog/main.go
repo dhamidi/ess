@@ -152,14 +152,19 @@ func ShowResult(w http.ResponseWriter, result *ess.CommandResult) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(err)
-		fmt.Fprintf(w, "\n")
 	} else {
 		fmt.Fprintf(w, "{\"status\":\"ok\"}\n")
 	}
 }
 
+func Show(w http.ResponseWriter, thing interface{}) {
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(thing)
+}
+
 type PostResource struct {
-	app *ess.Application
+	app      *ess.Application
+	allPosts *AllPostsInMemory
 }
 
 func (self *PostResource) ServeHTTP(w http.ResponseWriter, req *http.Request) {
@@ -171,8 +176,16 @@ func (self *PostResource) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	if len(fields) > 1 {
 		action = fields[1]
 	}
-	fmt.Fprintf(os.Stderr, "DEBUG: %q %q\n", postId, action)
+
 	switch action {
+	case "":
+		post, err := self.allPosts.ById(postId)
+		if err != nil {
+			result = ess.NewErrorResult(err)
+		} else {
+			Show(w, post)
+			return
+		}
 	case "edit":
 		params := EditPost.FromForm(req)
 		params.Fields["id"] = ess.StringValue(postId)
@@ -189,15 +202,17 @@ func main() {
 		logger.Fatal(err)
 	}
 
+	allPostsInMemory := NewAllPostsInMemory()
 	application := ess.NewApplication("blog").
 		WithLogger(logger).
-		WithStore(store)
+		WithStore(store).
+		WithProjection("all-posts", allPostsInMemory)
 
 	if err := application.Init(); err != nil {
 		logger.Fatal(err)
 	}
 
-	http.Handle("/posts/", &PostResource{app: application})
+	http.Handle("/posts/", &PostResource{app: application, allPosts: allPostsInMemory})
 	http.Handle("/posts", &PostsResource{app: application})
 
 	logger.Fatal(http.ListenAndServe(args(args(os.Args[1:]...), "localhost:6060"), nil))

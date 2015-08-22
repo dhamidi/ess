@@ -6,18 +6,20 @@ import (
 )
 
 type Application struct {
-	name   string
-	clock  Clock
-	store  EventStore
-	logger *log.Logger
+	name        string
+	clock       Clock
+	store       EventStore
+	logger      *log.Logger
+	projections map[string]EventHandler
 }
 
 func NewApplication(name string) *Application {
 	return &Application{
-		name:   name,
-		logger: log.New(os.Stderr, name+" ", log.LstdFlags),
-		store:  NewEventsInMemory(),
-		clock:  SystemClock,
+		name:        name,
+		logger:      log.New(os.Stderr, name+" ", log.LstdFlags),
+		store:       NewEventsInMemory(),
+		clock:       SystemClock,
+		projections: map[string]EventHandler{},
 	}
 }
 
@@ -31,8 +33,19 @@ func (self *Application) WithStore(store EventStore) *Application {
 	return self
 }
 
+func (self *Application) WithProjection(name string, projection EventHandler) *Application {
+	self.projections[name] = projection
+	return self
+}
+
+func (self *Application) project(event *Event) {
+	for _, handler := range self.projections {
+		handler.HandleEvent(event)
+	}
+}
+
 func (self *Application) Init() error {
-	return nil
+	return self.store.Replay("*", EventHandlerFunc(self.project))
 }
 
 func (self *Application) Send(command *Command) *CommandResult {

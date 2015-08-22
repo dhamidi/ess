@@ -34,6 +34,10 @@ type EventHandler interface {
 	HandleEvent(event *Event)
 }
 
+type EventHandlerFunc func(event *Event)
+
+func (self EventHandlerFunc) HandleEvent(event *Event) { self(event) }
+
 type EventStore interface {
 	Store(events []*Event) error
 	Replay(streamId string, receiver EventHandler) error
