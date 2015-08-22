@@ -22,6 +22,19 @@ func (self *ValidationError) Add(field string, desc string) *ValidationError {
 	return self
 }
 
+func (self *ValidationError) Merge(err error) *ValidationError {
+	verr, ok := err.(*ValidationError)
+	if !ok {
+		return self.Add("$all", err.Error())
+	}
+
+	for field, errors := range verr.Errors {
+		self.Errors[field] = append(self.Errors[field], errors...)
+	}
+
+	return self
+}
+
 func (self *ValidationError) Return() error {
 	if len(self.Errors) == 0 {
 		return nil

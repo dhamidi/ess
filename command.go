@@ -144,16 +144,16 @@ func (self *Command) FromForm(form Form) *Command {
 func (self *Command) Acknowledge(clock Clock) {
 	now := clock.Now()
 	self.Fields["now"] = &Time{now}
-	if self.AggregateId() == "" {
-		self.Fields[self.IdField] = StringValue(fmt.Sprintf("%d", now.UnixNano()))
-	}
 }
 
 func (self *Command) Execute() error {
+	err := self.receiver.HandleCommand(self)
+
 	if !self.errors.Ok() {
-		return self.errors.Return()
+		return self.errors.Merge(err).Return()
 	}
-	return self.receiver.HandleCommand(self)
+
+	return err
 }
 
 func (self *Command) String() string {
