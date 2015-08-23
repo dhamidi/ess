@@ -1,6 +1,7 @@
 package ess
 
 import (
+	"log"
 	"testing"
 	"time"
 )
@@ -11,6 +12,8 @@ var (
 			Target(NewTestAggregateFromCommand)
 
 	TheTime = time.Date(1970, 1, 1, 0, 0, 0, 0, time.UTC)
+
+	CurrentLines = []string{}
 )
 
 type TestAggregate struct {
@@ -57,9 +60,36 @@ func (self *TestAggregate) PublishWith(publisher EventPublisher) Aggregate {
 	return self
 }
 
+type LineWriter struct {
+	lines       *[]string
+	currentLine []byte
+}
+
+func NewLineWriter(lines *[]string) *LineWriter {
+	return &LineWriter{
+		lines:       lines,
+		currentLine: []byte{},
+	}
+}
+
+func (self *LineWriter) Write(data []byte) (n int, err error) {
+	for _, c := range data {
+		if c == '\n' {
+			*self.lines = append(*self.lines, string(self.currentLine))
+			self.currentLine = []byte{}
+		} else {
+			self.currentLine = append(self.currentLine, c)
+		}
+	}
+
+	return len(data), nil
+}
+
 func NewTestApp() *Application {
+	CurrentLines = []string{}
 	app := NewApplication("test")
 	app.clock = &StaticClock{TheTime}
+	app.WithLogger(log.New(NewLineWriter(&CurrentLines), "test ", 0))
 	return app
 }
 
