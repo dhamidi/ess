@@ -178,3 +178,38 @@ func TestApplication_Send_projectsEvents(t *testing.T) {
 		t.Errorf("projected = %d; want %d", got, want)
 	}
 }
+
+func TestApplication_Init_replaysHistoryThroughProjections(t *testing.T) {
+	seen := map[string]int{}
+	store := NewEventsInMemory()
+	history := []*Event{
+		NewEvent("test.event"),
+	}
+	store.Store(history)
+	app := NewTestApp().WithStore(store).
+		WithProjection(
+		"a",
+		EventHandlerFunc(func(*Event) {
+			seen["a"]++
+		}),
+	).
+		WithProjection(
+		"b",
+		EventHandlerFunc(func(*Event) {
+			seen["b"]++
+		}),
+	)
+
+	if err := app.Init(); err != nil {
+		t.Fatal(err)
+	}
+
+	if got, want := seen["a"], len(history); got != want {
+		t.Errorf(`seen["a"] = %d; want %d`, got, want)
+	}
+
+	if got, want := seen["b"], len(history); got != want {
+		t.Errorf(`seen["b"] = %d; want %d`, got, want)
+	}
+
+}
