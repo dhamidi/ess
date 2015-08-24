@@ -14,7 +14,7 @@ func TestEventsInMemory_EventStoreBehavior(t *testing.T) {
 }
 
 func TestEventsOnDisk_EventStoreBehavior(t *testing.T) {
-	filename := filepath.Join(os.TempDir(), fmt.Sprintf("events-%s.json", os.Getpid()))
+	filename := filepath.Join(os.TempDir(), fmt.Sprintf("events-%d.json", os.Getpid()))
 	teardown := func() {
 		os.Remove(filename)
 	}

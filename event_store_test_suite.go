@@ -2,11 +2,24 @@ package ess
 
 import "testing"
 
+// EventStoreTest encapsulates the tests for the EventStore interface.
+// Any compliant implementation of an EventStore should pass these
+// tests.
+//
+// This type is public so that implementations of an EventStore
+// outside of this package can be tested.
 type EventStoreTest struct {
-	SetUp    func(t *testing.T) EventStore
+	// SetUp is responsible for creating a new EventStore
+	// instance.  It is called before each test.
+	SetUp func(t *testing.T) EventStore
+
+	// TearDown is responsible for doing any cleanup work.  It is
+	// called at the end of each test.
 	TearDown func()
 }
 
+// NewEventStoreTest returns a new test suite using setup as the test
+// setup function.  TearDown is set to do nothing.
 func NewEventStoreTest(setup func(t *testing.T) EventStore) *EventStoreTest {
 	return &EventStoreTest{
 		SetUp:    setup,
@@ -14,6 +27,7 @@ func NewEventStoreTest(setup func(t *testing.T) EventStore) *EventStoreTest {
 	}
 }
 
+// Run runs all tests.
 func (self *EventStoreTest) Run(t *testing.T) {
 	self.testStoredEventsCanBeReplayedByStreamId(t)
 	self.testStoredEventsCanBeReplayedOverAllStreams(t)
