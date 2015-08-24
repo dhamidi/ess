@@ -6,7 +6,7 @@ import (
 )
 
 func TestEvent_For_usesAggregateIdAsStreamId(t *testing.T) {
-	aggregate := NewTestAggregate("id")
+	aggregate := newTestAggregate("id")
 	event := NewEvent("test.run").For(aggregate)
 
 	if got, want := event.StreamId, aggregate.Id(); got != want {

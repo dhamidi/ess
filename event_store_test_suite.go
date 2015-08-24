@@ -38,8 +38,8 @@ func (self *EventStoreTest) testStoredEventsCanBeReplayedByStreamId(t *testing.T
 	t.Logf("testStoredEventsCanBeReplayedByStreamId %T", store)
 	defer self.TearDown()
 
-	subject := NewTestAggregate("id")
-	other := NewTestAggregate("other")
+	subject := newTestAggregate("id")
+	other := newTestAggregate("other")
 
 	history := []*Event{
 		NewEvent("test.run-1").For(subject).Add("param", "value"),
@@ -77,8 +77,8 @@ func (self *EventStoreTest) testStoredEventsCanBeReplayedOverAllStreams(t *testi
 	t.Logf("testStoredEventsCanBeReplayedOverAllStreams %T", store)
 	defer self.TearDown()
 
-	subject := NewTestAggregate("id")
-	other := NewTestAggregate("other")
+	subject := newTestAggregate("id")
+	other := newTestAggregate("other")
 
 	history := []*Event{
 		NewEvent("test.run-1").For(subject).Add("param", "value"),

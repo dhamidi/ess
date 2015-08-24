@@ -9,56 +9,12 @@ import (
 var (
 	TestCommand = NewCommandDefinition("test").
 			Field("param", TrimmedString()).
-			Target(NewTestAggregateFromCommand)
+			Target(newTestAggregateFromCommand)
 
 	TheTime = time.Date(1970, 1, 1, 0, 0, 0, 0, time.UTC)
 
 	CurrentLines = []string{}
 )
-
-type TestAggregate struct {
-	id     string
-	events EventPublisher
-	error  error
-
-	onEvent   func(event *Event)
-	onCommand func(*TestAggregate)
-}
-
-func NewTestAggregateFromCommand(command *Command) Aggregate {
-	return NewTestAggregate(command.Get("id").String())
-}
-
-func NewTestAggregate(id string) *TestAggregate {
-	return &TestAggregate{id: id}
-}
-
-func (self *TestAggregate) FailWith(err error) *TestAggregate {
-	self.error = err
-	return self
-}
-
-func (self *TestAggregate) Id() string {
-	return self.id
-}
-
-func (self *TestAggregate) HandleEvent(e *Event) {
-	if self.onEvent != nil {
-		self.onEvent(e)
-	}
-}
-
-func (self *TestAggregate) HandleCommand(command *Command) error {
-	if self.onCommand != nil {
-		self.onCommand(self)
-	}
-	return self.error
-}
-
-func (self *TestAggregate) PublishWith(publisher EventPublisher) Aggregate {
-	self.events = publisher
-	return self
-}
 
 type LineWriter struct {
 	lines       *[]string
@@ -110,8 +66,8 @@ func TestApplication_Send_acknowledgesCommand(t *testing.T) {
 func TestApplication_Send_replaysHistoryOnReceiver(t *testing.T) {
 	app := NewTestApp()
 	seen := 0
-	other := NewTestAggregate("other")
-	receiver := NewTestAggregate("test")
+	other := newTestAggregate("other")
+	receiver := newTestAggregate("test")
 	receiver.onEvent = func(*Event) { seen++ }
 	history := []*Event{
 		NewEvent("test.run").For(other),
@@ -135,7 +91,7 @@ func TestApplication_Send_replaysHistoryOnReceiver(t *testing.T) {
 func TestApplication_Send_returnsErrorIfExecutingCommandFails(t *testing.T) {
 	cmd := TestCommand.NewCommand()
 	failure := NewValidationError().Add("param", "invalid")
-	cmd.receiver = NewTestAggregate("test").FailWith(failure.Return())
+	cmd.receiver = newTestAggregate("test").FailWith(failure.Return())
 	app := NewTestApp()
 	result := app.Send(cmd)
 
@@ -147,10 +103,10 @@ func TestApplication_Send_returnsErrorIfExecutingCommandFails(t *testing.T) {
 func TestApplication_Send_marksOccurrenceOnEvents(t *testing.T) {
 	app := NewTestApp()
 	cmd := TestCommand.NewCommand()
-	receiver := NewTestAggregate("test")
+	receiver := newTestAggregate("test")
 	cmd.receiver = receiver
 	event := NewEvent("test.run").For(cmd.receiver)
-	receiver.onCommand = func(agg *TestAggregate) {
+	receiver.onCommand = func(agg *testAggregate) {
 		agg.events.PublishEvent(event)
 	}
 
@@ -168,10 +124,10 @@ func TestApplication_Send_storesEvents(t *testing.T) {
 	transaction := NewEventsInMemory()
 	app := NewTestApp().WithStore(transaction)
 	cmd := TestCommand.NewCommand()
-	receiver := NewTestAggregate("test")
+	receiver := newTestAggregate("test")
 	cmd.receiver = receiver
 	event := NewEvent("test.run").For(cmd.receiver)
-	receiver.onCommand = func(agg *TestAggregate) {
+	receiver.onCommand = func(agg *testAggregate) {
 		agg.events.PublishEvent(event)
 	}
 
@@ -192,10 +148,10 @@ func TestApplication_Send_projectsEvents(t *testing.T) {
 		projected++
 	}))
 	cmd := TestCommand.NewCommand()
-	receiver := NewTestAggregate("test")
+	receiver := newTestAggregate("test")
 	cmd.receiver = receiver
 	event := NewEvent("test.run").For(cmd.receiver)
-	receiver.onCommand = func(agg *TestAggregate) {
+	receiver.onCommand = func(agg *testAggregate) {
 		agg.events.PublishEvent(event)
 	}
 
